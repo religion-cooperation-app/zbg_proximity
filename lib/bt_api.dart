@@ -66,9 +66,6 @@ class BluetoothProximityEvent {
   /// Firebase UID of the detected peer participant.
   final String peerUid;
 
-  /// Active region identifier, set via [BtEngine.setIdentity].
-  final String regionId;
-
   /// UTC ISO-8601 timestamp of the detection.
   final String tsIso;
 
@@ -88,7 +85,6 @@ class BluetoothProximityEvent {
 
   const BluetoothProximityEvent({
     required this.peerUid,
-    required this.regionId,
     required this.tsIso,
     required this.rssi,
     required this.estimatedM,

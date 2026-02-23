@@ -75,7 +75,6 @@ class BtWriters {
     return <String, dynamic>{
       'uid': uid,
       'peer_uid': event.peerUid,
-      'region_id': event.regionId,
       'ts_iso': event.tsIso,
       'rssi': event.rssi,
       'estimated_m': event.estimatedM,
@@ -92,7 +91,6 @@ class BtWriters {
   void _validate(BluetoothProximityEvent event) {
     _assertNonEmpty(uid, 'uid');
     _assertNonEmpty(event.peerUid, 'peer_uid');
-    _assertNonEmpty(event.regionId, 'region_id');
     _assertNonEmpty(event.tsIso, 'ts_iso');
 
     if (uid == event.peerUid) {

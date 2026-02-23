@@ -40,7 +40,6 @@ class BtEngine {
   // --- Identity (set before start) ----------------------------------------
 
   String? _uid;
-  String? _regionId;
 
   // --- Config --------------------------------------------------------------
 
@@ -97,10 +96,9 @@ class BtEngine {
   // Public API
   // =========================================================================
 
-  /// Set the signed-in user's UID and active region. Call before [setConfig].
-  void setIdentity({required String uid, required String regionId}) {
+  /// Set the signed-in user's UID. Call before [setConfig].
+  void setIdentity({required String uid}) {
     _uid = uid;
-    _regionId = regionId;
   }
 
   /// Apply a (possibly merged) [BluetoothProximityConfig].
@@ -153,8 +151,8 @@ class BtEngine {
   /// Requires [setIdentity] and [setConfig] to have been called.
   /// Subsequent calls while already started are no-ops.
   Future<void> start() async {
-    assert(_uid != null, 'BtEngine: call setIdentity() before start()');
-    assert(_cfg != null, 'BtEngine: call setConfig() before start()');
+    assert(_uid != null, 'BtEngine: call setIdentity() before start().');
+    assert(_cfg != null, 'BtEngine: call setConfig() before start().');
     if (_started) return;
 
     final cfg = _cfg!;
@@ -398,7 +396,6 @@ class BtEngine {
     final nowUtc = DateTime.now().toUtc();
     final event = BluetoothProximityEvent(
       peerUid: peerUid,
-      regionId: _regionId ?? '',
       tsIso: nowUtc.toIso8601String(),
       rssi: avgRssi,
       estimatedM: rssiToMeters(avgRssi),
