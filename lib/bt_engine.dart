@@ -1,11 +1,12 @@
 // bt_engine.dart — BLE advertising and scanning engine.
-// See zbg_proximity_plan.md §3.3 for full specification.
 //
-// ⚠️  ADVERTISING API NOTE
-// flutter_blue_plus advertising support was added in v1.14 and has evolved.
-// Before running on device, verify that the FlutterBluePlus.startAdvertising()
-// call below matches the API in your installed version. The scan-side API is
-// stable and unlikely to need adjustment.
+// Scanning:    flutter_blue_plus  (central role only)
+// Advertising: flutter_ble_peripheral via src/bt_advertiser.dart
+//              (conditional import — no-op stub on web)
+//
+// ⚠️  iOS LIMITATION: manufacturer data is silently dropped by iOS in BLE
+// advertisements. Peer identification via UID hash only works on Android.
+// See src/bt_advertiser_native.dart for details.
 
 import 'dart:async';
 
@@ -15,6 +16,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import 'bt_api.dart';
 import 'bt_utils.dart';
+import 'src/bt_advertiser.dart';
 
 // Company ID embedded in BLE manufacturer data payloads.
 // 0xFFFF is an unregistered / proprietary ID used here to identify this app.
@@ -155,6 +157,12 @@ class BtEngine {
     assert(_cfg != null, 'BtEngine: call setConfig() before start().');
     if (_started) return;
 
+    if (kIsWeb) {
+      _updateAdvertisingState(AdvertisingState.unsupported);
+      if (kDebugMode) debugPrint('[BtEngine] start() skipped — BLE not supported on web');
+      return;
+    }
+
     final cfg = _cfg!;
     if (!cfg.enabled) {
       if (kDebugMode) debugPrint('[BtEngine] start() skipped — enabled=false');
@@ -188,7 +196,7 @@ class BtEngine {
     }
 
     try {
-      await FlutterBluePlus.stopAdvertising();
+      await stopBleAdvertising();
     } catch (e) {
       if (kDebugMode) debugPrint('[BtEngine] stopAdvertising error (ignored): $e');
     }
@@ -222,28 +230,14 @@ class BtEngine {
     final cfg = _cfg!;
     final uid = _uid!;
 
-    // Build the 8-byte manufacturer payload from the UID hash.
     final hashHex = hashUidForAdvertisement(uid);
     final hashBytes = _hexToBytes(hashHex);
 
     try {
-      // ⚠️  Verify this call against your installed flutter_blue_plus version.
-      // The AdvertisementData constructor and startAdvertising signature have
-      // evolved. As of v1.32 the call below is expected to be correct.
-      //
-      // On iOS without the bluetooth-peripheral entitlement, startAdvertising
-      // succeeds but the advertisement is moved to the CoreBluetooth overflow
-      // area when backgrounded — iOS-to-iOS same-app detection still works.
-      // We cannot distinguish this from full advertising at the Dart level, so
-      // we report AdvertisingState.active in both cases.
-      await FlutterBluePlus.startAdvertising(
-        AdvertisementData(
-          advName: '',
-          connectable: false,
-          serviceUuids: [Guid(cfg.advertiseServiceUuid)],
-          manufacturerData: {_kCompanyId: hashBytes},
-        ),
-        timeout: const Duration(hours: 24),
+      await startBleAdvertising(
+        serviceUuid: cfg.advertiseServiceUuid,
+        hashBytes: hashBytes,
+        companyId: _kCompanyId,
       );
       _updateAdvertisingState(AdvertisingState.active);
       if (kDebugMode) {
