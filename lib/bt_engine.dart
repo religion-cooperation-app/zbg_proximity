@@ -310,8 +310,17 @@ class BtEngine {
 
     try {
       _isScanning = true;
+      // Build the service UUID scan filter:
+      // - Fixed app UUID: catches Android advertisers (identified via manufacturer data).
+      // - Peer identity UUIDs: catches iOS advertisers (manufacturer data unavailable).
+      //   iOS background scanning only delivers advertisements whose service UUID
+      //   is in this list, so every registered peer's identity UUID must be here.
+      final scanFilter = <Guid>[Guid(cfg.advertiseServiceUuid)];
+      for (final hash in _peerRegistry.keys) {
+        scanFilter.add(Guid(hashToIdentityUuid(hash)));
+      }
       await FlutterBluePlus.startScan(
-        withServices: [Guid(cfg.advertiseServiceUuid)],
+        withServices: scanFilter,
         timeout: Duration(seconds: cfg.scanDurationS),
       );
       // startScan with a timeout auto-stops after scanDurationS. We wait for
@@ -342,12 +351,31 @@ class BtEngine {
   }
 
   void _processScanResult(ScanResult result, BluetoothProximityConfig cfg) {
-    // --- Step 1: extract manufacturer data using our company ID ---
+    // --- Step 1: resolve peer hash from advertisement data ---
+    //
+    // Android peers embed the UID hash in manufacturer data (fast path —
+    // no connection required).
+    //
+    // iOS peers cannot include manufacturer data (silently dropped by iOS).
+    // Instead they advertise a per-user identity UUID whose format encodes
+    // the same hash. The scanner's withServices filter already includes all
+    // registered peer identity UUIDs, so only known peers reach this point.
+    final String? peerHash;
     final hashBytes = result.advertisementData.manufacturerData[_kCompanyId];
-    if (hashBytes == null || hashBytes.isEmpty) return;
-
-    // --- Step 2: reconstruct the peer hash hex string ---
-    final peerHash = _bytesToHex(hashBytes);
+    if (hashBytes != null && hashBytes.isNotEmpty) {
+      // Android peer: decode hash directly from manufacturer data.
+      peerHash = _bytesToHex(hashBytes);
+    } else {
+      // iOS peer: find the identity UUID in the advertised service UUID list
+      // and extract the hash from it.
+      String? found;
+      for (final guid in result.advertisementData.serviceUuids) {
+        found = identityUuidToHash(guid.str128);
+        if (found != null) break;
+      }
+      peerHash = found;
+    }
+    if (peerHash == null) return; // no identifiable hash in advertisement
 
     // --- Step 3: resolve peer UID from registry ---
     final peerUid = _peerRegistry[peerHash];
