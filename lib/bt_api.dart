@@ -135,9 +135,11 @@ class BluetoothProximityStatus {
 class BluetoothProximityConfig {
   // ---- Detection gating --------------------------------------------------
 
-  /// Master kill switch. When false the engine does not scan, advertise, or
-  /// emit events.
-  final bool enabled;
+  /// Enable proximity writes when the device is inside a geofence.
+  final bool enabledInside;
+
+  /// Enable proximity writes when the device is outside all geofences.
+  final bool enabledOutside;
 
   /// RSSI threshold in dBm. Averaged readings below this value (i.e. more
   /// negative, meaning further away) are discarded. Default -80 ≈ 6–9 m.
@@ -177,7 +179,8 @@ class BluetoothProximityConfig {
   // ---- Constructors ------------------------------------------------------
 
   const BluetoothProximityConfig({
-    required this.enabled,
+    required this.enabledInside,
+    required this.enabledOutside,
     required this.rssiThresholdDbm,
     required this.rollingRssiSamples,
     required this.insideGeofenceRateS,
@@ -202,7 +205,8 @@ class BluetoothProximityConfig {
       );
     }
     return BluetoothProximityConfig(
-      enabled: m['enabled'] as bool? ?? true,
+      enabledInside: m['enabled_inside'] as bool? ?? true,
+      enabledOutside: m['enabled_outside'] as bool? ?? true,
       rssiThresholdDbm: m['rssi_threshold_dbm'] as int? ?? -80,
       rollingRssiSamples: m['rolling_rssi_samples'] as int? ?? 3,
       insideGeofenceRateS: m['inside_geofence_rate_s'] as int? ?? 60,
@@ -229,7 +233,8 @@ class BluetoothProximityConfig {
   /// absent fields from inadvertently overriding the baseline with defaults.
   ///
   /// Rules:
-  /// - [enabled]               → true wins (||)
+  /// - [enabledInside]         → true wins (||)
+  /// - [enabledOutside]        → true wins (||)
   /// - [rssiThresholdDbm]      → min() — more negative = wider range
   /// - [rollingRssiSamples]    → min() — fewer samples = faster response
   /// - [insideGeofenceRateS]   → min() — lower rate = more writes
@@ -244,7 +249,8 @@ class BluetoothProximityConfig {
     List<Map<String, dynamic>> overrides,
   ) {
     // Start from baseline values.
-    var enabled = baseline.enabled;
+    var enabledInside = baseline.enabledInside;
+    var enabledOutside = baseline.enabledOutside;
     var rssiThresholdDbm = baseline.rssiThresholdDbm;
     var rollingRssiSamples = baseline.rollingRssiSamples;
     var insideGeofenceRateS = baseline.insideGeofenceRateS;
@@ -254,8 +260,11 @@ class BluetoothProximityConfig {
     // advertiseServiceUuid never changes — always baseline.
 
     for (final o in overrides) {
-      if (o.containsKey('enabled')) {
-        enabled = enabled || (o['enabled'] as bool? ?? false);
+      if (o.containsKey('enabled_inside')) {
+        enabledInside = enabledInside || (o['enabled_inside'] as bool? ?? false);
+      }
+      if (o.containsKey('enabled_outside')) {
+        enabledOutside = enabledOutside || (o['enabled_outside'] as bool? ?? false);
       }
       if (o.containsKey('rssi_threshold_dbm')) {
         final v = o['rssi_threshold_dbm'] as int?;
@@ -291,7 +300,8 @@ class BluetoothProximityConfig {
     }
 
     return BluetoothProximityConfig(
-      enabled: enabled,
+      enabledInside: enabledInside,
+      enabledOutside: enabledOutside,
       rssiThresholdDbm: rssiThresholdDbm,
       rollingRssiSamples: rollingRssiSamples,
       insideGeofenceRateS: insideGeofenceRateS,

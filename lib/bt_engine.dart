@@ -164,8 +164,8 @@ class BtEngine {
     }
 
     final cfg = _cfg!;
-    if (!cfg.enabled) {
-      if (kDebugMode) debugPrint('[BtEngine] start() skipped — enabled=false');
+    if (!cfg.enabledInside && !cfg.enabledOutside) {
+      if (kDebugMode) debugPrint('[BtEngine] start() skipped — enabledInside=false and enabledOutside=false');
       return;
     }
 
@@ -399,13 +399,13 @@ class BtEngine {
     if (avgRssi < cfg.rssiThresholdDbm) return; // signal too weak → too far
 
     // --- Step 8: zone-gated write rate ---
-    // When outside all geofences and outsideGeofenceRateS is null, writes
-    // are disabled entirely — return early without updating any state.
-    if (!_zoneState.insideZone && cfg.outsideGeofenceRateS == null) return;
+    final insideZone = _zoneState.insideZone;
+    if (insideZone && !cfg.enabledInside) return;
+    if (!insideZone && !cfg.enabledOutside) return;
 
-    final effectiveRateS = _zoneState.insideZone
+    final effectiveRateS = insideZone
         ? cfg.insideGeofenceRateS
-        : cfg.outsideGeofenceRateS!;
+        : (cfg.outsideGeofenceRateS ?? cfg.insideGeofenceRateS);
 
     // --- Step 9: per-peer rate limit ---
     final lastWrite = _lastWriteTime[peerHash];
@@ -422,7 +422,7 @@ class BtEngine {
       rssi: avgRssi,
       estimatedM: rssiToMeters(avgRssi),
       zoneId: _zoneState.zoneId,
-      insideZone: _zoneState.insideZone,
+      insideZone: insideZone,
     );
 
     _proxCtl.add(event);

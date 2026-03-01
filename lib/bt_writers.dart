@@ -38,17 +38,20 @@ class BtWriters {
   /// App-provided write adapter (same instance used with zbg_location).
   final WriteFn writeFn;
 
-  /// Deduplication window in seconds. Should match
-  /// [BluetoothProximityConfig.insideGeofenceRateS] so that each write
-  /// attempt produces a distinct Firestore document rather than overwriting
-  /// the previous one. Defaults to 300 s (5 minutes) for backwards
-  /// compatibility, but callers should always pass the configured rate.
+  /// Deduplication window in seconds when inside a geofence. Should match
+  /// [BluetoothProximityConfig.insideGeofenceRateS].
   final int dedupIntervalS;
+
+  /// Deduplication window in seconds when outside all geofences. Should match
+  /// [BluetoothProximityConfig.outsideGeofenceRateS]. Defaults to
+  /// [dedupIntervalS] when not provided.
+  final int? outsideDedupIntervalS;
 
   BtWriters({
     required this.uid,
     required this.writeFn,
     this.dedupIntervalS = 300,
+    this.outsideDedupIntervalS,
   });
 
   /// Validates [event], builds the Firestore document, computes the
@@ -67,7 +70,10 @@ class BtWriters {
     _validate(event);
 
     final ts = DateTime.parse(event.tsIso);
-    final docId = '${uid}_${event.peerUid}_${timeBucket(ts, dedupIntervalS)}';
+    final intervalS = event.insideZone
+        ? dedupIntervalS
+        : (outsideDedupIntervalS ?? dedupIntervalS);
+    final docId = '${uid}_${event.peerUid}_${timeBucket(ts, intervalS)}';
 
     final data = _buildDoc(event);
 
