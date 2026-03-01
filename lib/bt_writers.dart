@@ -38,7 +38,18 @@ class BtWriters {
   /// App-provided write adapter (same instance used with zbg_location).
   final WriteFn writeFn;
 
-  BtWriters({required this.uid, required this.writeFn});
+  /// Deduplication window in seconds. Should match
+  /// [BluetoothProximityConfig.insideGeofenceRateS] so that each write
+  /// attempt produces a distinct Firestore document rather than overwriting
+  /// the previous one. Defaults to 300 s (5 minutes) for backwards
+  /// compatibility, but callers should always pass the configured rate.
+  final int dedupIntervalS;
+
+  BtWriters({
+    required this.uid,
+    required this.writeFn,
+    this.dedupIntervalS = 300,
+  });
 
   /// Validates [event], builds the Firestore document, computes the
   /// deduplication document ID, and writes to [proximity_events].
@@ -56,7 +67,7 @@ class BtWriters {
     _validate(event);
 
     final ts = DateTime.parse(event.tsIso);
-    final docId = '${uid}_${event.peerUid}_${fiveMinuteBucket(ts)}';
+    final docId = '${uid}_${event.peerUid}_${timeBucket(ts, dedupIntervalS)}';
 
     final data = _buildDoc(event);
 

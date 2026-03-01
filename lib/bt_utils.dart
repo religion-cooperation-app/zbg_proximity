@@ -94,23 +94,26 @@ String? identityUuidToHash(String uuid) {
 
 // ---------------------------------------------------------------------------
 
-/// Truncates [ts] to the nearest 5-minute boundary (rounding down) and
-/// returns the result as a UTC ISO-8601 string.
+/// Truncates [ts] to the nearest [intervalSeconds] boundary (rounding down)
+/// and returns the result as a UTC ISO-8601 string.
 ///
-/// Used by [BtWriters] to compute deduplication document IDs, so that
-/// both devices detecting the same proximity event within the same 5-minute
-/// window produce the same document ID and the later write simply overwrites
-/// the earlier one.
+/// Used by [BtWriters] to compute deduplication document IDs. Both devices
+/// detecting the same proximity event within the same interval window produce
+/// the same document ID, so the later write overwrites the earlier one without
+/// accumulating duplicate documents.
 ///
-/// Example: 14:37:52 UTC → "2026-02-23T14:35:00.000Z"
-String fiveMinuteBucket(DateTime ts) {
+/// [intervalSeconds] should match [BluetoothProximityConfig.insideGeofenceRateS]
+/// so that the dedup window aligns with the configured write rate — one
+/// document is stored per write attempt rather than many writes collapsing
+/// onto the same document.
+///
+/// Example (intervalSeconds=30):  14:37:52 UTC → "2026-02-23T14:37:30.000Z"
+/// Example (intervalSeconds=180): 14:37:52 UTC → "2026-02-23T14:36:00.000Z"
+String timeBucket(DateTime ts, int intervalSeconds) {
   final utc = ts.toUtc();
-  final truncated = DateTime.utc(
-    utc.year,
-    utc.month,
-    utc.day,
-    utc.hour,
-    (utc.minute ~/ 5) * 5,
-  );
-  return truncated.toIso8601String();
+  final secondsIntoDay = utc.hour * 3600 + utc.minute * 60 + utc.second;
+  final bucketStart = (secondsIntoDay ~/ intervalSeconds) * intervalSeconds;
+  return DateTime.utc(utc.year, utc.month, utc.day)
+      .add(Duration(seconds: bucketStart))
+      .toIso8601String();
 }
