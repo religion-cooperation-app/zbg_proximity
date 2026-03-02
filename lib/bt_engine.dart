@@ -9,6 +9,7 @@
 // See src/bt_advertiser_native.dart for details.
 
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PlatformException;
@@ -271,8 +272,6 @@ class BtEngine {
   // =========================================================================
 
   void _startScanLoop() {
-    final cfg = _cfg!;
-
     // Subscribe once to the cumulative scan-results stream. flutter_blue_plus
     // emits the full list of all devices found so far whenever a new device
     // appears or an existing device's RSSI updates. The subscription persists
@@ -284,20 +283,53 @@ class BtEngine {
       },
     );
 
-    // Run the first scan immediately so the user doesn't wait scanIntervalS
-    // before any detection happens.
-    _runOneScan();
+    if (!kIsWeb && Platform.isIOS) {
+      // iOS: one continuous scan — CoreBluetooth holds the scan alive natively
+      // in background when bluetooth-central UIBackgroundMode is set.
+      // Timer-based scan cycles use Dart timers which are suspended when the
+      // app is backgrounded, causing the scan to stop and detection to fail.
+      // A continuous scan avoids this: CoreBluetooth wakes the app whenever a
+      // matching advertisement is seen, regardless of Dart timer state.
+      _runContinuousScan();
+    } else {
+      // Android: cycle scan for battery efficiency. Timer.periodic fires
+      // reliably on Android regardless of app lifecycle state.
+      final cfg = _cfg!;
+      _runOneScan();
+      _scanTimer = Timer.periodic(
+        Duration(seconds: cfg.scanIntervalS),
+        (_) {
+          _nearbyHashes.clear();
+          _runOneScan();
+        },
+      );
+    }
+  }
 
-    // Then fire a new scan cycle every scanIntervalS seconds.
-    _scanTimer = Timer.periodic(
-      Duration(seconds: cfg.scanIntervalS),
-      (_) {
-        // Clear the "nearby" set at the start of each cycle so the status
-        // snapshot reflects only peers seen in that cycle.
-        _nearbyHashes.clear();
-        _runOneScan();
-      },
-    );
+  /// iOS-only: starts a single scan with no timeout and never stops it while
+  /// the engine is running. [stop] calls [FlutterBluePlus.stopScan] to end it.
+  Future<void> _runContinuousScan() async {
+    final cfg = _cfg;
+    if (cfg == null || !_started) return;
+    if (FlutterBluePlus.isScanningNow) return;
+
+    final scanFilter = <Guid>[Guid(cfg.advertiseServiceUuid)];
+    for (final hash in _peerRegistry.keys) {
+      scanFilter.add(Guid(hashToIdentityUuid(hash)));
+    }
+
+    try {
+      _isScanning = true;
+      await FlutterBluePlus.startScan(withServices: scanFilter);
+      // No timeout — scan runs until stop() calls FlutterBluePlus.stopScan().
+      if (kDebugMode) debugPrint('[BtEngine] continuous scan started (iOS)');
+    } on PlatformException catch (e) {
+      if (kDebugMode) debugPrint('[BtEngine] startScan PlatformException: ${e.code}');
+      _isScanning = false;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[BtEngine] startScan error: $e');
+      _isScanning = false;
+    }
   }
 
   Future<void> _runOneScan() async {
