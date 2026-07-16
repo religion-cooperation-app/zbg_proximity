@@ -1,9 +1,6 @@
 import 'package:flutter/services.dart';
 
-/// Side-effect-free configuration used to prove the Android platform channel.
-///
-/// This milestone does not start BLE or persist configuration. The native
-/// implementation keeps these values in memory until [NativeProximity.stop].
+/// Configuration persisted by the native Android proximity plugin.
 class NativeProximityConfig {
   const NativeProximityConfig({
     required this.uid,
@@ -22,7 +19,7 @@ class NativeProximityConfig {
       };
 }
 
-/// Current state reported by the native Android plugin scaffold.
+/// Current state reported by the native Android plugin.
 class NativeProximityStatus {
   const NativeProximityStatus({
     required this.platform,
@@ -46,16 +43,20 @@ class NativeProximityStatus {
   final String? activationMode;
 }
 
-/// Minimal channel facade for the native Android migration.
-///
-/// The first milestone deliberately exposes only configuration, status, and
-/// stop calls. Continuous BLE behavior is added in later milestones.
+/// Channel facade for the native Android migration.
 abstract final class NativeProximity {
   static const MethodChannel _channel =
       MethodChannel('app.zbg.proximity/methods');
 
   static Future<void> configure(NativeProximityConfig config) async {
     await _channel.invokeMethod<void>('configure', config.toMap());
+  }
+
+  /// Starts the native Android foreground-service lifecycle.
+  ///
+  /// BLE scanning and advertising are added in a later milestone.
+  static Future<void> startAlways() async {
+    await _channel.invokeMethod<void>('startAlways');
   }
 
   static Future<NativeProximityStatus> getStatus() async {

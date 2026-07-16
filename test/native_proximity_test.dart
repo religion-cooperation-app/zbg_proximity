@@ -22,6 +22,7 @@ void main() {
             'activationMode': 'always',
           };
         case 'configure':
+        case 'startAlways':
         case 'stop':
           return null;
       }
@@ -62,6 +63,12 @@ void main() {
     expect(status.configured, isTrue);
     expect(status.running, isFalse);
     expect(status.activationMode, 'always');
+  });
+
+  test('startAlways invokes the native service operation', () async {
+    await NativeProximity.startAlways();
+
+    expect(calls.single.method, 'startAlways');
   });
 
   test('stop invokes the native stop operation', () async {
