@@ -20,8 +20,10 @@ class ZbgProximityPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "configure" -> configure(call, result)
+            "syncPeers" -> syncPeers(call, result)
             "startAlways" -> startAlways(result)
             "getStatus" -> getStatus(result)
+            "getNearbyPeers" -> getNearbyPeers(result)
             "stop" -> stop(result)
             else -> result.notImplemented()
         }
@@ -43,11 +45,37 @@ class ZbgProximityPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             return
         }
 
-        // The UID is validated but intentionally not persisted in this
-        // lifecycle-only milestone. Identity storage is added later with an
-        // encrypted-at-rest design.
-        stateStore.saveConfiguration(serviceUuid, requestedActivationMode)
+        try {
+            java.util.UUID.fromString(serviceUuid)
+        } catch (_: IllegalArgumentException) {
+            result.error("invalid_config", "advertiseServiceUuid must be a valid UUID", null)
+            return
+        }
+
+        // Persist only the derived self hash, never the raw local UID.
+        stateStore.saveConfiguration(uid, serviceUuid, requestedActivationMode)
         result.success(null)
+    }
+
+    private fun syncPeers(call: MethodCall, result: MethodChannel.Result) {
+        if (!stateStore.isConfigured()) {
+            result.error("not_configured", "Call configure before syncPeers", null)
+            return
+        }
+        val peers = call.argument<List<String>>("peerUids")
+        if (peers == null) {
+            result.error("invalid_peers", "peerUids is required", null)
+            return
+        }
+        try {
+            val count = PeerRegistry(applicationContext).replace(
+                peers,
+                stateStore.selfHashHex() ?: "",
+            )
+            result.success(count)
+        } catch (error: IllegalArgumentException) {
+            result.error("invalid_peers", error.message, null)
+        }
     }
 
     private fun startAlways(result: MethodChannel.Result) {
@@ -79,19 +107,39 @@ class ZbgProximityPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     }
 
     private fun getStatus(result: MethodChannel.Result) {
+        val peers = NearbyPeerStore(applicationContext).snapshots()
+        val lastPeer = peers.firstOrNull()
         result.success(
             mapOf(
                 "platform" to "android",
                 "configured" to stateStore.isConfigured(),
                 "running" to stateStore.isRunning(),
                 "activationMode" to stateStore.activationMode(),
+                "advertising" to stateStore.isAdvertising(),
+                "advertisingState" to stateStore.advertisingState(),
+                "scanning" to stateStore.isScanning(),
+                "scanningState" to stateStore.scanningState(),
+                "knownPeerCount" to PeerRegistry(applicationContext).count(),
+                "nearbyPeerCount" to peers.count { it.nearby },
+                "lastDetectedPeerUid" to lastPeer?.uid,
+                "lastDetectedRssi" to lastPeer?.rssi,
+                "lastDetectedAtMs" to lastPeer?.lastSeenAtMs,
+                "lastBleError" to stateStore.lastBleError(),
             ),
+        )
+    }
+
+    private fun getNearbyPeers(result: MethodChannel.Result) {
+        result.success(
+            NearbyPeerStore(applicationContext).snapshots().map { it.toMap() },
         )
     }
 
     private fun stop(result: MethodChannel.Result) {
         ProximityServiceController.stop(applicationContext)
         stateStore.clear()
+        PeerRegistry(applicationContext).clear()
+        NearbyPeerStore(applicationContext).clear()
         result.success(null)
     }
 

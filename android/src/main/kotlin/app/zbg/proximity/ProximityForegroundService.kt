@@ -13,10 +13,19 @@ import android.os.IBinder
  */
 class ProximityForegroundService : Service() {
     private lateinit var stateStore: ProximityStateStore
+    private lateinit var advertiser: BleAdvertiser
+    private lateinit var scanner: BleScanner
 
     override fun onCreate() {
         super.onCreate()
         stateStore = ProximityStateStore(applicationContext)
+        advertiser = BleAdvertiser(applicationContext, stateStore)
+        scanner = BleScanner(
+            applicationContext,
+            stateStore,
+            PeerRegistry(applicationContext),
+            NearbyPeerStore(applicationContext),
+        )
 
         val notification = ProximityNotification.create(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -36,10 +45,14 @@ class ProximityForegroundService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        advertiser.start()
+        scanner.start()
         return START_STICKY
     }
 
     override fun onDestroy() {
+        scanner.stop()
+        advertiser.stop()
         stateStore.setRunning(false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
