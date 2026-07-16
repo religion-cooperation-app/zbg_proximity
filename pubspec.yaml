@@ -21,4 +21,8 @@ dev_dependencies:
     sdk: flutter
 
 flutter:
-  # No assets or fonts needed for this package.
+  plugin:
+    platforms:
+      android:
+        package: app.zbg.proximity
+        pluginClass: ZbgProximityPlugin
