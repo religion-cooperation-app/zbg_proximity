@@ -125,6 +125,9 @@ class ZbgProximityPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 "lastDetectedRssi" to lastPeer?.rssi,
                 "lastDetectedAtMs" to lastPeer?.lastSeenAtMs,
                 "lastBleError" to stateStore.lastBleError(),
+                "scanCallbackCount" to stateStore.scanCallbackCount(),
+                "validFrameCount" to stateStore.validFrameCount(),
+                "recognizedPeerCount" to stateStore.recognizedPeerCount(),
             ),
         )
     }

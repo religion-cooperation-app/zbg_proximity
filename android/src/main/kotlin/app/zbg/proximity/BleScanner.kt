@@ -52,6 +52,7 @@ internal class BleScanner(
         }
 
         stop()
+        stateStore.resetScanCounters()
         peersByHash = peerRegistry.byHash()
         val serviceParcelUuid = ParcelUuid(uuid)
         val newCallback = object : ScanCallback() {
@@ -77,6 +78,7 @@ internal class BleScanner(
                         .setServiceData(
                             serviceParcelUuid,
                             byteArrayOf(ParticipantFrameCodec.VERSION),
+                            byteArrayOf(0xff.toByte()),
                         )
                         .build(),
                 ),
@@ -97,12 +99,15 @@ internal class BleScanner(
     }
 
     private fun process(result: ScanResult, serviceUuid: ParcelUuid) {
+        stateStore.incrementScanCallbackCount()
         val hash = ParticipantFrameCodec.decode(
             result.scanRecord?.getServiceData(serviceUuid),
         ) ?: return
+        stateStore.incrementValidFrameCount()
         val hashHex = ParticipantFrameCodec.toHex(hash)
         if (hashHex == stateStore.selfHashHex()) return
         val uid = peersByHash[hashHex] ?: return
+        stateStore.incrementRecognizedPeerCount()
         nearbyPeerStore.record(uid, result.rssi)
     }
 

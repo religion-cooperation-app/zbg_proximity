@@ -31,6 +31,9 @@ class NativeProximityStatus {
     required this.scanningState,
     required this.knownPeerCount,
     required this.nearbyPeerCount,
+    required this.scanCallbackCount,
+    required this.validFrameCount,
+    required this.recognizedPeerCount,
     this.activationMode,
     this.lastDetectedPeerUid,
     this.lastDetectedRssi,
@@ -50,6 +53,9 @@ class NativeProximityStatus {
       scanningState: map['scanningState'] as String? ?? 'unknown',
       knownPeerCount: map['knownPeerCount'] as int? ?? 0,
       nearbyPeerCount: map['nearbyPeerCount'] as int? ?? 0,
+      scanCallbackCount: map['scanCallbackCount'] as int? ?? 0,
+      validFrameCount: map['validFrameCount'] as int? ?? 0,
+      recognizedPeerCount: map['recognizedPeerCount'] as int? ?? 0,
       lastDetectedPeerUid: map['lastDetectedPeerUid'] as String?,
       lastDetectedRssi: map['lastDetectedRssi'] as int?,
       lastDetectedAt: _dateTimeFromMilliseconds(map['lastDetectedAtMs']),
@@ -67,6 +73,9 @@ class NativeProximityStatus {
   final String scanningState;
   final int knownPeerCount;
   final int nearbyPeerCount;
+  final int scanCallbackCount;
+  final int validFrameCount;
+  final int recognizedPeerCount;
   final String? lastDetectedPeerUid;
   final int? lastDetectedRssi;
   final DateTime? lastDetectedAt;

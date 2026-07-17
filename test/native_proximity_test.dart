@@ -26,6 +26,9 @@ void main() {
             'scanningState': 'active',
             'knownPeerCount': 1,
             'nearbyPeerCount': 1,
+            'scanCallbackCount': 20,
+            'validFrameCount': 18,
+            'recognizedPeerCount': 15,
             'lastDetectedPeerUid': 'peer-1',
             'lastDetectedRssi': -67,
             'lastDetectedAtMs': 1000,
@@ -97,6 +100,9 @@ void main() {
     expect(status.scanning, isTrue);
     expect(status.knownPeerCount, 1);
     expect(status.nearbyPeerCount, 1);
+    expect(status.scanCallbackCount, 20);
+    expect(status.validFrameCount, 18);
+    expect(status.recognizedPeerCount, 15);
     expect(status.lastDetectedPeerUid, 'peer-1');
     expect(status.lastDetectedRssi, -67);
     expect(status.lastDetectedAt,

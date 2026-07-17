@@ -27,6 +27,9 @@ Future<String> btNativeSensingStatus() async {
       'scanning=${status.scanning}(${status.scanningState})',
       'known=${status.knownPeerCount}',
       'nearby=${status.nearbyPeerCount}',
+      'callbacks=${status.scanCallbackCount}',
+      'frames=${status.validFrameCount}',
+      'recognized=${status.recognizedPeerCount}',
       'last=${status.lastDetectedPeerUid ?? "none"}',
       'rssi=${status.lastDetectedRssi?.toString() ?? "none"}',
       if (status.lastDetectedAt != null)

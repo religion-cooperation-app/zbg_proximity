@@ -60,6 +60,26 @@ internal class ProximityStateStore(context: Context) {
         preferences.getString(KEY_SCANNING_ERROR, null)
             ?: preferences.getString(KEY_ADVERTISING_ERROR, null)
 
+    fun resetScanCounters() {
+        preferences.edit()
+            .putLong(KEY_SCAN_CALLBACK_COUNT, 0)
+            .putLong(KEY_VALID_FRAME_COUNT, 0)
+            .putLong(KEY_RECOGNIZED_PEER_COUNT, 0)
+            .commit()
+    }
+
+    fun incrementScanCallbackCount() = increment(KEY_SCAN_CALLBACK_COUNT)
+
+    fun incrementValidFrameCount() = increment(KEY_VALID_FRAME_COUNT)
+
+    fun incrementRecognizedPeerCount() = increment(KEY_RECOGNIZED_PEER_COUNT)
+
+    fun scanCallbackCount(): Long = preferences.getLong(KEY_SCAN_CALLBACK_COUNT, 0)
+
+    fun validFrameCount(): Long = preferences.getLong(KEY_VALID_FRAME_COUNT, 0)
+
+    fun recognizedPeerCount(): Long = preferences.getLong(KEY_RECOGNIZED_PEER_COUNT, 0)
+
     fun clear() {
         preferences.edit().clear().apply()
     }
@@ -69,6 +89,14 @@ internal class ProximityStateStore(context: Context) {
         value: String?,
     ): android.content.SharedPreferences.Editor =
         if (value == null) remove(key) else putString(key, value)
+
+    private fun increment(key: String) {
+        synchronized(preferences) {
+            preferences.edit()
+                .putLong(key, preferences.getLong(key, 0) + 1)
+                .apply()
+        }
+    }
 
     private companion object {
         const val PREFERENCES_NAME = "zbg_proximity_native"
@@ -83,5 +111,8 @@ internal class ProximityStateStore(context: Context) {
         const val KEY_SCANNING_STATE = "scanning_state"
         const val KEY_ADVERTISING_ERROR = "advertising_error"
         const val KEY_SCANNING_ERROR = "scanning_error"
+        const val KEY_SCAN_CALLBACK_COUNT = "scan_callback_count"
+        const val KEY_VALID_FRAME_COUNT = "valid_frame_count"
+        const val KEY_RECOGNIZED_PEER_COUNT = "recognized_peer_count"
     }
 }
